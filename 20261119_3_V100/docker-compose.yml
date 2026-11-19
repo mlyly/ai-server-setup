@@ -31,11 +31,6 @@ services:
     environment:
       - LLAMA_CACHE=/models
       - LLAMA_ARG_HF_REPO=${PRIMARY_HF_REPO}
-      - LLAMA_ARG_HF_REPO_DRAFT=${DRAFT_HF_REPO}
-      - LLAMA_ARG_SPEC_DRAFT_N_MAX=8
-      - LLAMA_ARG_SPEC_DRAFT_N_MIN=2
-      - LLAMA_ARG_SPEC_DRAFT_P_MIN=0.5
-      - LLAMA_ARG_N_GPU_LAYERS_DRAFT=99
       - LLAMA_ARG_ALIAS=qwen-architect
       - LLAMA_ARG_API_KEY=${BACKEND_API_KEY}
       - LLAMA_ARG_HOST=0.0.0.0
@@ -76,11 +71,6 @@ services:
     environment:
       - LLAMA_CACHE=/models
       - LLAMA_ARG_HF_REPO=${PRIMARY_HF_REPO}
-      - LLAMA_ARG_HF_REPO_DRAFT=${DRAFT_HF_REPO}
-      - LLAMA_ARG_SPEC_DRAFT_N_MAX=8
-      - LLAMA_ARG_SPEC_DRAFT_N_MIN=2
-      - LLAMA_ARG_SPEC_DRAFT_P_MIN=0.5
-      - LLAMA_ARG_N_GPU_LAYERS_DRAFT=99
       - LLAMA_ARG_ALIAS=qwen-architect
       - LLAMA_ARG_API_KEY=${BACKEND_API_KEY}
       - LLAMA_ARG_HOST=0.0.0.0
@@ -120,14 +110,12 @@ services:
     environment:
       - LLAMA_CACHE=/models
       - LLAMA_ARG_HF_REPO=${FAST_HF_REPO}
-      - LLAMA_ARG_ALIAS=devstral-worker
+      - LLAMA_ARG_ALIAS=qwen-worker
       - LLAMA_ARG_API_KEY=${BACKEND_API_KEY}
       - LLAMA_ARG_HOST=0.0.0.0
       - LLAMA_ARG_PORT=8080
       - LLAMA_ARG_CTX_SIZE=131072
       - LLAMA_ARG_N_PARALLEL=4
-      - LLAMA_ARG_SPEC_TYPE=ngram-simple
-      - LLAMA_ARG_SPEC_DRAFT_N_MAX=8
       - LLAMA_ARG_N_GPU_LAYERS=99
       - LLAMA_ARG_FLASH_ATTN=on
       - LLAMA_ARG_CACHE_TYPE_K=q8_0
@@ -145,7 +133,7 @@ services:
       interval: 15s
       timeout: 10s
       retries: 5
-      start_period: 1200s
+      start_period: 1800s
 
   llama-embed:
     image: ghcr.io/ggml-org/llama.cpp:server-cuda

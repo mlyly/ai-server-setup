@@ -4,6 +4,7 @@ model_list:
       model: openai/qwen-architect
       api_base: http://llama-primary-1:8080/v1
       api_key: os.environ/BACKEND_API_KEY
+      reasoning_effort: low
       timeout: 600
 
   - model_name: qwen-architect
@@ -11,11 +12,28 @@ model_list:
       model: openai/qwen-architect
       api_base: http://llama-primary-2:8080/v1
       api_key: os.environ/BACKEND_API_KEY
+      reasoning_effort: low
       timeout: 600
 
-  - model_name: devstral-worker
+  - model_name: qwen-architect-deep
     litellm_params:
-      model: openai/devstral-worker
+      model: openai/qwen-architect
+      api_base: http://llama-primary-1:8080/v1
+      api_key: os.environ/BACKEND_API_KEY
+      reasoning_effort: high
+      timeout: 600
+
+  - model_name: qwen-architect-deep
+    litellm_params:
+      model: openai/qwen-architect
+      api_base: http://llama-primary-2:8080/v1
+      api_key: os.environ/BACKEND_API_KEY
+      reasoning_effort: high
+      timeout: 600
+
+  - model_name: qwen-worker
+    litellm_params:
+      model: openai/qwen-worker
       api_base: http://llama-fast:8080/v1
       api_key: os.environ/BACKEND_API_KEY
       timeout: 300
