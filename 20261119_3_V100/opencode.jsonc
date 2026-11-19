@@ -3,23 +3,30 @@
   "provider": {
     "v100-litellm": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "LiteLLM Gateway",
+      "name": "G431-MM1 LiteLLM Gateway",
       "options": {
         "baseURL": "http://llm-1:4000/v1",
         "apiKey": "{env:OPENCODE_LITELLM_KEY}"
       },
       "models": {
         "qwen-architect": {
-          "name": "Qwen 27B Architect (Dual V100)",
+          "name": "Qwen 3.8 27B Architect (Fast Reasoning)",
           "limit": {
             "context": 131072,
             "output": 16384
           }
         },
-        "devstral-worker": {
-          "name": "Devstral 24B Fast Worker (Single V100)",
+        "qwen-architect-deep": {
+          "name": "Qwen 3.8 27B Architect (Deep Reasoning)",
           "limit": {
-            "context": 65536,
+            "context": 131072,
+            "output": 24576
+          }
+        },
+        "qwen-worker": {
+          "name": "Qwen 3 30B-A3B MoE Worker (4x Parallel)",
+          "limit": {
+            "context": 32768,
             "output": 8192
           }
         }
@@ -27,32 +34,32 @@
     }
   },
   "model": "v100-litellm/qwen-architect",
-  "small_model": "v100-litellm/devstral-worker",
+  "small_model": "v100-litellm/qwen-worker",
   "agent": {
     "plan": {
-      "description": "Architectural planning and multi-service Java/TypeScript design",
-      "model": "v100-litellm/qwen-architect",
+      "description": "Deep architectural planning and multi-service Java/TypeScript design",
+      "model": "v100-litellm/qwen-architect-deep",
       "temperature": 0.2
     },
     "build": {
-      "description": "Primary full-stack implementation across Spring Boot, Angular, and React",
+      "description": "Primary full-stack implementation across Spring Boot, Quarkus, Angular, and React",
       "model": "v100-litellm/qwen-architect",
       "temperature": 0.1
     },
     "explore": {
-      "description": "Fast read-only codebase search, symbol tracing, and dependency analysis",
-      "model": "v100-litellm/devstral-worker",
+      "description": "Ultra-fast parallel codebase search, symbol tracing, and dependency analysis",
+      "model": "v100-litellm/qwen-worker",
       "temperature": 0.1
     },
     "fast-edit": {
       "description": "Rapid single-file edits, boilerplate generation, unit tests, and quick refactors",
       "mode": "all",
-      "model": "v100-litellm/devstral-worker",
+      "model": "v100-litellm/qwen-worker",
       "temperature": 0.1
     },
     "general": {
       "description": "General subagent for parallel research, log parsing, and build verification",
-      "model": "v100-litellm/devstral-worker",
+      "model": "v100-litellm/qwen-worker",
       "temperature": 0.1
     }
   }
