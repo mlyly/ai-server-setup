@@ -26,7 +26,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./models:/root/.cache/llama.cpp
+      - ./models:/models
       - ./cache:/cache
     environment:
       - LLAMA_ARG_HF_REPO=${PRIMARY_HF_REPO}
@@ -42,6 +42,7 @@ services:
       - LLAMA_ARG_CACHE_TYPE_V=q8_0
       - LLAMA_ARG_SLOT_SAVE_PATH=/cache
       - LLAMA_ARG_JINJA=true
+      - LLAMA_CACHE=/models
     deploy:
       resources:
         reservations:
@@ -65,7 +66,7 @@ services:
     ports:
       - "8081:8080"
     volumes:
-      - ./models:/root/.cache/llama.cpp
+      - ./models:/models
     environment:
       - LLAMA_ARG_HF_REPO=${FAST_HF_REPO}
       - LLAMA_ARG_ALIAS=devstral-worker
@@ -78,6 +79,7 @@ services:
       - LLAMA_ARG_CACHE_TYPE_K=q8_0
       - LLAMA_ARG_CACHE_TYPE_V=q8_0
       - LLAMA_ARG_JINJA=true
+      - LLAMA_CACHE=/models
     deploy:
       resources:
         reservations:
@@ -101,7 +103,7 @@ services:
     ports:
       - "8082:8080"
     volumes:
-      - ./models:/root/.cache/llama.cpp
+      - ./models:/models
     environment:
       - LLAMA_ARG_HF_REPO=${EMBED_HF_REPO}
       - LLAMA_ARG_ALIAS=bge-m3
@@ -114,6 +116,7 @@ services:
       - LLAMA_ARG_N_GPU_LAYERS=99
       - LLAMA_ARG_EMBEDDINGS=true
       - LLAMA_ARG_POOLING=cls
+      - LLAMA_CACHE=/models
     deploy:
       resources:
         reservations:
