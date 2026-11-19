@@ -16,7 +16,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 60s
 
   llama-primary:
     image: ghcr.io/ggml-org/llama.cpp:server-cuda
@@ -30,7 +29,7 @@ services:
       - ./models:/root/.cache/llama.cpp
       - ./cache:/cache
     environment:
-      #      - LLAMA_ARG_MODEL=/models/${PRIMARY_MODEL_FILE}
+      - LLAMA_ARG_HF_REPO=${PRIMARY_HF_REPO}
       - LLAMA_ARG_ALIAS=qwen-architect
       - LLAMA_ARG_API_KEY=${BACKEND_API_KEY}
       - LLAMA_ARG_HOST=0.0.0.0
@@ -43,7 +42,6 @@ services:
       - LLAMA_ARG_CACHE_TYPE_V=q8_0
       - LLAMA_ARG_SLOT_SAVE_PATH=/cache
       - LLAMA_ARG_JINJA=true
-      - LLAMA_ARG_HF_REPO=unsloth/Qwen3.6-27B-GGUF:Q8_0
     deploy:
       resources:
         reservations:
@@ -53,7 +51,7 @@ services:
               capabilities: [ gpu ]
     healthcheck:
       test: [ "CMD", "curl", "-f", "-H", "Authorization: Bearer ${BACKEND_API_KEY}", "http://localhost:8080/health" ]
-      interval: 30s
+      interval: 15s
       timeout: 10s
       retries: 5
       start_period: 1800s
@@ -69,7 +67,7 @@ services:
     volumes:
       - ./models:/root/.cache/llama.cpp
     environment:
-      #      - LLAMA_ARG_MODEL=/models/${FAST_MODEL_FILE}
+      - LLAMA_ARG_HF_REPO=${FAST_HF_REPO}
       - LLAMA_ARG_ALIAS=devstral-worker
       - LLAMA_ARG_API_KEY=${BACKEND_API_KEY}
       - LLAMA_ARG_HOST=0.0.0.0
@@ -80,7 +78,6 @@ services:
       - LLAMA_ARG_CACHE_TYPE_K=q8_0
       - LLAMA_ARG_CACHE_TYPE_V=q8_0
       - LLAMA_ARG_JINJA=true
-      - LLAMA_ARG_HF_REPO=unsloth/Devstral-Small-2-24B-Instruct-2512-GGUF:Q4_K_M
     deploy:
       resources:
         reservations:
@@ -90,10 +87,10 @@ services:
               capabilities: [ gpu ]
     healthcheck:
       test: [ "CMD", "curl", "-f", "-H", "Authorization: Bearer ${BACKEND_API_KEY}", "http://localhost:8080/health" ]
-      interval: 30s
+      interval: 15s
       timeout: 10s
       retries: 5
-      start_period: 1800s
+      start_period: 1200s
 
   llama-embed:
     image: ghcr.io/ggml-org/llama.cpp:server-cuda
@@ -106,7 +103,7 @@ services:
     volumes:
       - ./models:/root/.cache/llama.cpp
     environment:
-      #      - LLAMA_ARG_MODEL=/models/${EMBED_MODEL_FILE}
+      - LLAMA_ARG_HF_REPO=${EMBED_HF_REPO}
       - LLAMA_ARG_ALIAS=bge-m3
       - LLAMA_ARG_API_KEY=${BACKEND_API_KEY}
       - LLAMA_ARG_HOST=0.0.0.0
@@ -117,7 +114,6 @@ services:
       - LLAMA_ARG_N_GPU_LAYERS=99
       - LLAMA_ARG_EMBEDDINGS=true
       - LLAMA_ARG_POOLING=cls
-      - LLAMA_ARG_HF_REPO=gpustack/bge-m3-GGUF:Q8_0
     deploy:
       resources:
         reservations:
@@ -127,10 +123,10 @@ services:
               capabilities: [ gpu ]
     healthcheck:
       test: [ "CMD", "curl", "-f", "-H", "Authorization: Bearer ${BACKEND_API_KEY}", "http://localhost:8080/health" ]
-      interval: 30s
+      interval: 15s
       timeout: 10s
       retries: 5
-      start_period: 1800s
+      start_period: 300s
 
   litellm:
     image: ghcr.io/berriai/litellm:main-latest
