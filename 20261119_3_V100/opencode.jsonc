@@ -1,0 +1,59 @@
+{
+  "$schema": "https://opencode.ai",
+  "provider": {
+    "v100-litellm": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "LiteLLM Gateway",
+      "options": {
+        "baseURL": "http://llm-1:4000/v1",
+        "apiKey": "{env:OPENCODE_LITELLM_KEY}"
+      },
+      "models": {
+        "qwen-architect": {
+          "name": "Qwen 27B Architect (Dual V100)",
+          "limit": {
+            "context": 131072,
+            "output": 16384
+          }
+        },
+        "devstral-worker": {
+          "name": "Devstral 24B Fast Worker (Single V100)",
+          "limit": {
+            "context": 65536,
+            "output": 8192
+          }
+        }
+      }
+    }
+  },
+  "model": "v100-litellm/qwen-architect",
+  "small_model": "v100-litellm/devstral-worker",
+  "agent": {
+    "plan": {
+      "description": "Architectural planning and multi-service Java/TypeScript design",
+      "model": "v100-litellm/qwen-architect",
+      "temperature": 0.2
+    },
+    "build": {
+      "description": "Primary full-stack implementation across Spring Boot, Angular, and React",
+      "model": "v100-litellm/qwen-architect",
+      "temperature": 0.1
+    },
+    "explore": {
+      "description": "Fast read-only codebase search, symbol tracing, and dependency analysis",
+      "model": "v100-litellm/devstral-worker",
+      "temperature": 0.1
+    },
+    "fast-edit": {
+      "description": "Rapid single-file edits, boilerplate generation, unit tests, and quick refactors",
+      "mode": "all",
+      "model": "v100-litellm/devstral-worker",
+      "temperature": 0.1
+    },
+    "general": {
+      "description": "General subagent for parallel research, log parsing, and build verification",
+      "model": "v100-litellm/devstral-worker",
+      "temperature": 0.1
+    }
+  }
+}

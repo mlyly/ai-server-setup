@@ -1,15 +1,37 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: litellm-postgres
+    restart: unless-stopped
+    networks:
+      - ai-net
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - litellm-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   llama-primary:
     image: ghcr.io/ggml-org/llama.cpp:server-cuda
     container_name: llama-v100-primary
     restart: unless-stopped
+    networks:
+      - ai-net
     ports:
       - "8080:8080"
     volumes:
       - ./models:/models:ro
       - ./cache:/cache
     environment:
-      - LLAMA_ARG_MODEL=/models/Qwen3.6-27B-Q8_0.gguf
+      - LLAMA_ARG_MODEL=/models/${PRIMARY_MODEL_FILE}
+      - LLAMA_ARG_ALIAS=qwen-architect
+      - LLAMA_ARG_API_KEY=${BACKEND_API_KEY}
       - LLAMA_ARG_HOST=0.0.0.0
       - LLAMA_ARG_PORT=8080
       - LLAMA_ARG_CTX_SIZE=131072
@@ -28,7 +50,7 @@ services:
               device_ids: [ '0', '1' ]
               capabilities: [ gpu ]
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+      test: [ "CMD", "curl", "-f", "-H", "Authorization: Bearer ${BACKEND_API_KEY}", "http://localhost:8080/health" ]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -38,12 +60,16 @@ services:
     image: ghcr.io/ggml-org/llama.cpp:server-cuda
     container_name: llama-v100-fast
     restart: unless-stopped
+    networks:
+      - ai-net
     ports:
       - "8081:8080"
     volumes:
       - ./models:/models:ro
     environment:
-      - LLAMA_ARG_MODEL=/models/Devstral-Small-24B-Q4_K_M.gguf
+      - LLAMA_ARG_MODEL=/models/${FAST_MODEL_FILE}
+      - LLAMA_ARG_ALIAS=devstral-worker
+      - LLAMA_ARG_API_KEY=${BACKEND_API_KEY}
       - LLAMA_ARG_HOST=0.0.0.0
       - LLAMA_ARG_PORT=8080
       - LLAMA_ARG_CTX_SIZE=65536
@@ -60,8 +86,101 @@ services:
               device_ids: [ '2' ]
               capabilities: [ gpu ]
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+      test: [ "CMD", "curl", "-f", "-H", "Authorization: Bearer ${BACKEND_API_KEY}", "http://localhost:8080/health" ]
       interval: 30s
       timeout: 10s
       retries: 5
       start_period: 45s
+
+  llama-embed:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    container_name: llama-v100-embed
+    restart: unless-stopped
+    networks:
+      - ai-net
+    ports:
+      - "8082:8080"
+    volumes:
+      - ./models:/models:ro
+    environment:
+      - LLAMA_ARG_MODEL=/models/${EMBED_MODEL_FILE}
+      - LLAMA_ARG_ALIAS=bge-m3
+      - LLAMA_ARG_API_KEY=${BACKEND_API_KEY}
+      - LLAMA_ARG_HOST=0.0.0.0
+      - LLAMA_ARG_PORT=8080
+      - LLAMA_ARG_CTX_SIZE=8192
+      - LLAMA_ARG_UBATCH_SIZE=2048
+      - LLAMA_ARG_BATCH_SIZE=2048
+      - LLAMA_ARG_N_GPU_LAYERS=99
+      - LLAMA_ARG_EMBEDDINGS=true
+      - LLAMA_ARG_POOLING=cls
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: [ '2' ]
+              capabilities: [ gpu ]
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "-H", "Authorization: Bearer ${BACKEND_API_KEY}", "http://localhost:8080/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: litellm-proxy
+    restart: unless-stopped
+    networks:
+      - ai-net
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./litellm_config.yaml:/app/config.yaml:ro
+    environment:
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
+      - LITELLM_SALT_KEY=${LITELLM_SALT_KEY}
+      - BACKEND_API_KEY=${BACKEND_API_KEY}
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - STORE_MODEL_IN_DB=True
+    command: [ "--config", "/app/config.yaml", "--port", "4000", "--host", "0.0.0.0" ]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      llama-primary:
+        condition: service_healthy
+      llama-fast:
+        condition: service_healthy
+      llama-embed:
+        condition: service_healthy
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    restart: unless-stopped
+    networks:
+      - ai-net
+    ports:
+      - "3000:8080"
+    volumes:
+      - open-webui-data:/app/backend/data
+    environment:
+      - OPENAI_API_BASE_URL=http://litellm:4000/v1
+      - OPENAI_API_KEY=${LITELLM_MASTER_KEY}
+      - ENABLE_OLLAMA_API=false
+      - WEBUI_AUTH=true
+      - RAG_EMBEDDING_ENGINE=openai
+      - RAG_EMBEDDING_MODEL=bge-m3
+      - RAG_OPENAI_API_BASE_URL=http://litellm:4000/v1
+      - RAG_OPENAI_API_KEY=${LITELLM_MASTER_KEY}
+    depends_on:
+      - litellm
+
+networks:
+  ai-net:
+    driver: bridge
+
+volumes:
+  open-webui-data:
+  litellm-pgdata:
