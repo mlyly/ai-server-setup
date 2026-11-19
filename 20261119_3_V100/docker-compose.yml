@@ -26,10 +26,10 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./models:/models:ro
+      - ./models:/models
       - ./cache:/cache
     environment:
-      - LLAMA_ARG_MODEL=/models/${PRIMARY_MODEL_FILE}
+      #      - LLAMA_ARG_MODEL=/models/${PRIMARY_MODEL_FILE}
       - LLAMA_ARG_ALIAS=qwen-architect
       - LLAMA_ARG_API_KEY=${BACKEND_API_KEY}
       - LLAMA_ARG_HOST=0.0.0.0
@@ -42,6 +42,7 @@ services:
       - LLAMA_ARG_CACHE_TYPE_V=q8_0
       - LLAMA_ARG_SLOT_SAVE_PATH=/cache
       - LLAMA_ARG_JINJA=true
+      - LLAMA_ARG_HF_REPO=unsloth/Qwen3.6-27B-GGUF:Q8_0
     deploy:
       resources:
         reservations:
@@ -65,9 +66,9 @@ services:
     ports:
       - "8081:8080"
     volumes:
-      - ./models:/models:ro
+      - ./models:/models
     environment:
-      - LLAMA_ARG_MODEL=/models/${FAST_MODEL_FILE}
+      #      - LLAMA_ARG_MODEL=/models/${FAST_MODEL_FILE}
       - LLAMA_ARG_ALIAS=devstral-worker
       - LLAMA_ARG_API_KEY=${BACKEND_API_KEY}
       - LLAMA_ARG_HOST=0.0.0.0
@@ -78,6 +79,7 @@ services:
       - LLAMA_ARG_CACHE_TYPE_K=q8_0
       - LLAMA_ARG_CACHE_TYPE_V=q8_0
       - LLAMA_ARG_JINJA=true
+      - LLAMA_ARG_HF_REPO=unsloth/Devstral-Small-2-24B-Instruct-2512-GGUF:Q4_K_M
     deploy:
       resources:
         reservations:
@@ -101,9 +103,9 @@ services:
     ports:
       - "8082:8080"
     volumes:
-      - ./models:/models:ro
+      - ./models:/models
     environment:
-      - LLAMA_ARG_MODEL=/models/${EMBED_MODEL_FILE}
+      #      - LLAMA_ARG_MODEL=/models/${EMBED_MODEL_FILE}
       - LLAMA_ARG_ALIAS=bge-m3
       - LLAMA_ARG_API_KEY=${BACKEND_API_KEY}
       - LLAMA_ARG_HOST=0.0.0.0
@@ -114,6 +116,7 @@ services:
       - LLAMA_ARG_N_GPU_LAYERS=99
       - LLAMA_ARG_EMBEDDINGS=true
       - LLAMA_ARG_POOLING=cls
+      - LLAMA_ARG_HF_REPO=gpustack/bge-m3-GGUF:Q8_0
     deploy:
       resources:
         reservations:
