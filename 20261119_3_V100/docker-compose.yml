@@ -17,9 +17,9 @@ services:
       timeout: 5s
       retries: 5
 
-  llama-primary:
+  llama-primary-1:
     image: ghcr.io/ggml-org/llama.cpp:server-cuda
-    container_name: llama-v100-primary
+    container_name: llama-v100-primary-1
     restart: unless-stopped
     networks:
       - ai-net
@@ -27,28 +27,78 @@ services:
       - "8080:8080"
     volumes:
       - ./models:/models
-      - ./cache:/cache
+      - ./cache-1:/cache
     environment:
+      - LLAMA_CACHE=/models
       - LLAMA_ARG_HF_REPO=${PRIMARY_HF_REPO}
+      - LLAMA_ARG_HF_REPO_DRAFT=${DRAFT_HF_REPO}
+      - LLAMA_ARG_DRAFT_MAX=8
+      - LLAMA_ARG_DRAFT_MIN=2
+      - LLAMA_ARG_DRAFT_P_MIN=0.5
+      - LLAMA_ARG_N_GPU_LAYERS_DRAFT=99
       - LLAMA_ARG_ALIAS=qwen-architect
       - LLAMA_ARG_API_KEY=${BACKEND_API_KEY}
       - LLAMA_ARG_HOST=0.0.0.0
       - LLAMA_ARG_PORT=8080
       - LLAMA_ARG_CTX_SIZE=131072
+      - LLAMA_ARG_N_PARALLEL=1
       - LLAMA_ARG_N_GPU_LAYERS=99
-      - LLAMA_ARG_TENSOR_SPLIT=1,1
       - LLAMA_ARG_FLASH_ATTN=on
       - LLAMA_ARG_CACHE_TYPE_K=q8_0
       - LLAMA_ARG_CACHE_TYPE_V=q8_0
       - LLAMA_ARG_SLOT_SAVE_PATH=/cache
       - LLAMA_ARG_JINJA=true
-      - LLAMA_CACHE=/models
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: [ '0', '1' ]
+              device_ids: [ '0' ]
+              capabilities: [ gpu ]
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "-H", "Authorization: Bearer ${BACKEND_API_KEY}", "http://localhost:8080/health" ]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 1800s
+
+  llama-primary-2:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    container_name: llama-v100-primary-2
+    restart: unless-stopped
+    networks:
+      - ai-net
+    ports:
+      - "8083:8080"
+    volumes:
+      - ./models:/models
+      - ./cache-2:/cache
+    environment:
+      - LLAMA_CACHE=/models
+      - LLAMA_ARG_HF_REPO=${PRIMARY_HF_REPO}
+      - LLAMA_ARG_HF_REPO_DRAFT=${DRAFT_HF_REPO}
+      - LLAMA_ARG_DRAFT_MAX=8
+      - LLAMA_ARG_DRAFT_MIN=2
+      - LLAMA_ARG_DRAFT_P_MIN=0.5
+      - LLAMA_ARG_N_GPU_LAYERS_DRAFT=99
+      - LLAMA_ARG_ALIAS=qwen-architect
+      - LLAMA_ARG_API_KEY=${BACKEND_API_KEY}
+      - LLAMA_ARG_HOST=0.0.0.0
+      - LLAMA_ARG_PORT=8080
+      - LLAMA_ARG_CTX_SIZE=131072
+      - LLAMA_ARG_N_PARALLEL=1
+      - LLAMA_ARG_N_GPU_LAYERS=99
+      - LLAMA_ARG_FLASH_ATTN=on
+      - LLAMA_ARG_CACHE_TYPE_K=q8_0
+      - LLAMA_ARG_CACHE_TYPE_V=q8_0
+      - LLAMA_ARG_SLOT_SAVE_PATH=/cache
+      - LLAMA_ARG_JINJA=true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: [ '1' ]
               capabilities: [ gpu ]
     healthcheck:
       test: [ "CMD", "curl", "-f", "-H", "Authorization: Bearer ${BACKEND_API_KEY}", "http://localhost:8080/health" ]
@@ -68,6 +118,7 @@ services:
     volumes:
       - ./models:/models
     environment:
+      - LLAMA_CACHE=/models
       - LLAMA_ARG_HF_REPO=${FAST_HF_REPO}
       - LLAMA_ARG_ALIAS=devstral-worker
       - LLAMA_ARG_API_KEY=${BACKEND_API_KEY}
@@ -80,7 +131,6 @@ services:
       - LLAMA_ARG_CACHE_TYPE_K=q8_0
       - LLAMA_ARG_CACHE_TYPE_V=q8_0
       - LLAMA_ARG_JINJA=true
-      - LLAMA_CACHE=/models
     deploy:
       resources:
         reservations:
@@ -106,6 +156,7 @@ services:
     volumes:
       - ./models:/models
     environment:
+      - LLAMA_CACHE=/models
       - LLAMA_ARG_HF_REPO=${EMBED_HF_REPO}
       - LLAMA_ARG_ALIAS=bge-m3
       - LLAMA_ARG_API_KEY=${BACKEND_API_KEY}
@@ -117,7 +168,6 @@ services:
       - LLAMA_ARG_N_GPU_LAYERS=99
       - LLAMA_ARG_EMBEDDINGS=true
       - LLAMA_ARG_POOLING=cls
-      - LLAMA_CACHE=/models
     deploy:
       resources:
         reservations:
@@ -152,7 +202,9 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      llama-primary:
+      llama-primary-1:
+        condition: service_healthy
+      llama-primary-2:
         condition: service_healthy
       llama-fast:
         condition: service_healthy

@@ -2,7 +2,14 @@ model_list:
   - model_name: qwen-architect
     litellm_params:
       model: openai/qwen-architect
-      api_base: http://llama-primary:8080/v1
+      api_base: http://llama-primary-1:8080/v1
+      api_key: os.environ/BACKEND_API_KEY
+      timeout: 600
+
+  - model_name: qwen-architect
+    litellm_params:
+      model: openai/qwen-architect
+      api_base: http://llama-primary-2:8080/v1
       api_key: os.environ/BACKEND_API_KEY
       timeout: 600
 
@@ -24,6 +31,9 @@ model_list:
       model: openai/bge-m3
       api_base: http://llama-embed:8080/v1
       api_key: os.environ/BACKEND_API_KEY
+
+router_settings:
+  routing_strategy: least-busy
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
