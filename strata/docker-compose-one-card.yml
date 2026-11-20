@@ -25,7 +25,7 @@ services:
       - NVIDIA_VISIBLE_DEVICES=0
       - CUDA_VISIBLE_DEVICES=0
       - GPU=0
-      - GPU_ROLES=0=main
+      #      - GPU_ROLES=0=main
 
       # --- Model & Quantization (Sized for 1x 32GB V100 + 123GB System RAM) ---
       # IQ3_S uses ~65-75GB RAM + ~28GB VRAM, leaving ~45GB RAM for OS & 27B containers
