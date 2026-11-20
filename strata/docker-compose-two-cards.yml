@@ -1,0 +1,99 @@
+services:
+  # PostgreSQL for LiteLLM Token & Usage Analytics
+  postgres:
+    image: postgres:16-alpine
+    container_name: litellm-postgres
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # LiteLLM Unified OpenAI-Compatible Proxy
+  litellm:
+    image: ghcr.io/berriai/litellm:main-stable
+    container_name: litellm-proxy
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./litellm_config.yaml:/app/config.yaml:ro
+    command: --config /app/config.yaml --port 4000
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # GPUs 0 & 1 (64GB VRAM): Qwen3.8-Flash-Next (Architect / Plan Mode)
+  strata:
+    image: ghcr.io/niko1221/strata:latest-cuda12
+    container_name: strata-v100-two
+    restart: unless-stopped
+    ports:
+      - "0.0.0.0:8080:8080"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: [ '0', '1' ]
+              capabilities: [ gpu ]
+    shm_size: '16gb'
+    environment:
+      # --- Dual-GPU Configuration (GPUs 0 & 1) ---
+      - GPU=0,1
+      - GPU_ROLES=0=helper,1=main
+
+      # --- Model & Quantization (Fits nearly 100% inside 64GB VRAM) ---
+      - MODEL=IQ3_S
+      - ALLOW_DOWNLOAD=1
+      - CONTEXT=131072
+      - KV=int8
+
+      # --- Volta (sm_70) Performance Tuning ---
+      - STRATA_SM70_TABLE=1
+      - STRATA_STAGE_TRIM=1
+
+      # --- Security & Networking ---
+      - API_KEY=sk-strata-change-me-to-a-strong-key
+      - PORT=8080
+    volumes:
+      - ./strata-data:/data
+
+  # GPU 2 (32GB VRAM): Qwen3.8-27B (Build Coder + Fast Explore Sub-Agents)
+  qwen27b:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    container_name: qwen27b-coder
+    restart: unless-stopped
+    ipc: host
+    ports:
+      - "0.0.0.0:8081:8080"
+    volumes:
+      - ./models:/models:ro
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=2
+      - CUDA_VISIBLE_DEVICES=2
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: [ '2' ]
+              capabilities: [ gpu ]
+    command: >
+      -m /models/Qwen3.8-27B-UD-IQ4_XS.gguf
+      --host 0.0.0.0
+      --port 8080
+      -ngl 999
+      -c 131072
+      --parallel 4
+      --temp 0.6
+      --top-p 0.95
+      --top-k 20
+
+volumes:
+  postgres_data:
