@@ -22,7 +22,7 @@ services:
 
     environment:
       # --- Dual-GPU Configuration (GPUs 0 & 1) ---
-      - GPU=0,1
+      # - GPU=0,1
       - GPU_ROLES=0=helper,1=main
 
       # --- Model & Quantization (Fits nearly 100% inside 64GB VRAM) ---
