@@ -1,0 +1,45 @@
+services:
+  strata:
+    image: ghcr.io/niko1221/strata:latest-cuda12
+    container_name: strata-v100-single
+    restart: unless-stopped
+
+    # Expose API on your LAN (requires API_KEY set below)
+    ports:
+      - "0.0.0.0:8080:8080"
+
+    # Allocate ONLY GPU 0 to this container (leaves GPUs 1 & 2 free)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: [ '0' ]
+              capabilities: [ gpu ]
+
+    # Keep shared memory for host-RAM MoE expert arenas
+    shm_size: '16gb'
+
+    environment:
+      # --- Single-GPU Configuration (GPU 0 only) ---
+      - NVIDIA_VISIBLE_DEVICES=0
+      - CUDA_VISIBLE_DEVICES=0
+
+      # --- Model & Quantization (Sized for 1x 32GB V100 + 123GB System RAM) ---
+      # IQ3_S uses ~65-75GB RAM + ~28GB VRAM, leaving ~45GB RAM for OS & 27B containers
+      - MODEL=IQ3_S
+      - ALLOW_DOWNLOAD=1
+      - CONTEXT=65536
+      - KV=int8
+
+      # --- Volta (sm_70) Performance Tuning ---
+      - STRATA_SM70_TABLE=1
+      - STRATA_STAGE_TRIM=1
+
+      # --- Security & Networking ---
+      - API_KEY=sk-strata-change-me-to-a-strong-key
+      - PORT=8080
+
+    volumes:
+      # Mount a fast local NVMe/SSD directory on your G431-MM1 for models & caches
+      - ./strata-data:/data
