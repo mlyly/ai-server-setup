@@ -4,7 +4,9 @@ model_list:
       model: openai/qwen-architect
       api_base: http://llama-primary-1:8080/v1
       api_key: os.environ/BACKEND_API_KEY
-      reasoning_effort: low
+      extra_body:
+        chat_template_kwargs:
+          enable_thinking: false
       timeout: 600
 
   - model_name: qwen-architect
@@ -12,7 +14,9 @@ model_list:
       model: openai/qwen-architect
       api_base: http://llama-primary-2:8080/v1
       api_key: os.environ/BACKEND_API_KEY
-      reasoning_effort: low
+      extra_body:
+        chat_template_kwargs:
+          enable_thinking: false
       timeout: 600
 
   - model_name: qwen-architect-deep
@@ -20,7 +24,6 @@ model_list:
       model: openai/qwen-architect
       api_base: http://llama-primary-1:8080/v1
       api_key: os.environ/BACKEND_API_KEY
-      reasoning_effort: high
       timeout: 600
 
   - model_name: qwen-architect-deep
@@ -28,7 +31,6 @@ model_list:
       model: openai/qwen-architect
       api_base: http://llama-primary-2:8080/v1
       api_key: os.environ/BACKEND_API_KEY
-      reasoning_effort: high
       timeout: 600
 
   - model_name: qwen-worker
