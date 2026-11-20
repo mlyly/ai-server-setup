@@ -1,7 +1,7 @@
 services:
   strata:
     image: ghcr.io/niko1221/strata:latest-cuda12
-    container_name: strata-v100
+    container_name: strata-v100-dual
     restart: unless-stopped
 
     # Expose API on your LAN (requires API_KEY set below)
