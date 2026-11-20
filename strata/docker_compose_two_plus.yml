@@ -85,8 +85,8 @@ services:
     volumes:
       - ./models:/models
     environment:
-      - NVIDIA_VISIBLE_DEVICES=2
-      - CUDA_VISIBLE_DEVICES=2
+      #      - NVIDIA_VISIBLE_DEVICES=2
+      #      - CUDA_VISIBLE_DEVICES=2
       - LLAMA_CACHE=/models
     deploy:
       resources:
