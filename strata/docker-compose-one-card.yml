@@ -31,7 +31,8 @@ services:
       # IQ3_S uses ~65-75GB RAM + ~28GB VRAM, leaving ~45GB RAM for OS & 27B containers
       - MODEL=IQ3_S
       - ALLOW_DOWNLOAD=1
-      - CONTEXT=65536
+      #      - CONTEXT=65536
+      - CONTEXT=131072
       - KV=int8
 
       # --- Volta (sm_70) Performance Tuning ---
