@@ -1,0 +1,114 @@
+services:
+  # 1. PostgreSQL for LiteLLM Token & Usage Analytics
+  postgres:
+    image: postgres:16-alpine
+    container_name: litellm-postgres
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. LiteLLM Unified Proxy & Admin Dashboard (Port 4000)
+  litellm:
+    image: ghcr.io/berriai/litellm:main-stable
+    container_name: litellm-proxy
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "0.0.0.0:4000:4000"
+    volumes:
+      - ./litellm_config.yaml:/app/config.yaml:ro
+    command: --config /app/config.yaml --port 4000
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # 3. Open WebUI Chat Interface (Port 3000 -> Routed via LiteLLM)
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    restart: unless-stopped
+    ports:
+      - "0.0.0.0:3000:8080"
+    environment:
+      - OPENAI_API_BASE_URL=http://litellm:4000/v1
+      - OPENAI_API_KEY=${LITELLM_MASTER_KEY}
+      - ENABLE_OLLAMA_API=false
+      - WEBUI_AUTH=true
+    volumes:
+      - open_webui_data:/app/backend/data
+    depends_on:
+      - litellm
+
+  # 4. GPUs 0 & 1 (64GB VRAM): Qwen3.8-Flash-Next via Strata (86 tok/s)
+  strata:
+    image: ghcr.io/niko1221/strata:latest-cuda12
+    container_name: strata-v100
+    restart: unless-stopped
+    ports:
+      - "0.0.0.0:8080:8080"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: [ '0', '1' ]
+              capabilities: [ gpu ]
+    shm_size: '16gb'
+    environment:
+      # - GPU=0,1
+      - GPU_ROLES=0=helper,1=main
+      - MODEL=IQ3_S
+      - ALLOW_DOWNLOAD=1
+      - CONTEXT=131072
+      - KV=int8
+      - STRATA_SM70_TABLE=1
+      - STRATA_STAGE_TRIM=1
+      - API_KEY=${STRATA_API_KEY}
+      - PORT=8080
+    volumes:
+      - ./strata-data:/data
+
+  # 5. GPU 2 (32GB VRAM): Qwen3.8-27B via llama.cpp (Coder + Fast Sub-Agents)
+  qwen27b:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    container_name: qwen27b-coder
+    restart: unless-stopped
+    ipc: host
+    ports:
+      - "0.0.0.0:8081:8080"
+    volumes:
+      - ./models:/models
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=2
+      - CUDA_VISIBLE_DEVICES=2
+      - LLAMA_CACHE=/models
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: [ '2' ]
+              capabilities: [ gpu ]
+    command: >
+      --hf-repo unsloth/Qwen3.8-27B-GGUF
+      --hf-file Qwen3.8-27B-UD-IQ4_XS.gguf
+      --host 0.0.0.0
+      --port 8080
+      -ngl 999
+      -c 131072
+      --parallel 4
+      --cache-type-k q8_0
+      --cache-type-v q8_0
+      --temp 0.6
+      --top-p 0.95
+      --top-k 20
+
+volumes:
+  postgres_data:
+  open_webui_data:
