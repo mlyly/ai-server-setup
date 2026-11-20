@@ -27,10 +27,14 @@ services:
       - GPU_ROLES=0=helper,1=helper,2=main
 
       # --- Model & Quantization (Sweet spot for 96GB VRAM) ---
-      - MODEL=Qwen3.8-Flash-Next
+#      - MODEL=Qwen3.8-Flash-Next
+#      - ALLOW_DOWNLOAD=1
+#      # Set context up to 65536 or 131072; int8 uses Volta's fast prompt-attention kernel
+#      - CONTEXT=131072
+#      - KV=int8
+      - MODEL=UD-Q4_K_XL
       - ALLOW_DOWNLOAD=1
-      # Set context up to 65536 or 131072; int8 uses Volta's fast prompt-attention kernel
-      - CONTEXT=131072
+      - CONTEXT=65536
       - KV=int8
 
       # --- Volta (sm_70) Performance Tuning ---
