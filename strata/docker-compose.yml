@@ -22,7 +22,7 @@ services:
 
     environment:
       # --- Multi-GPU Configuration (3 x V100) ---
-      - GPU=0,1,2
+      # - GPU=0,1,2
       # Exactly one card is 'main' (holds output head & draft layer); others are 'helper'
       - GPU_ROLES=0=helper,1=helper,2=main
 
