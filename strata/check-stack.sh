@@ -131,7 +131,7 @@ INTERNAL_CHECKS=(
 for entry in "${INTERNAL_CHECKS[@]}"; do
   label="${entry%%|*}"
   url="${entry#*|}"
-  if docker exec litellm-proxy curl -fsS --max-time 10 "$url" >/dev/null 2>&1; then
+  if docker exec litellm-proxy python3 -c "import urllib.request, sys; urllib.request.urlopen('$url', timeout=10); sys.exit(0)" >/dev/null 2>&1; then
     pass "Internal network litellm -> $label ($url)"
   else
     fail "Internal network litellm -> $label ($url)"
