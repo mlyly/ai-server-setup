@@ -122,16 +122,28 @@ fi
 
 echo "=== 4. Internal Docker Network Connectivity (from litellm-proxy) ==="
 INTERNAL_CHECKS=(
-  "strata|http://strata:8080/v1/models"
-  "qwen27b|http://qwen27b:8080/v1/models"
-  "embeddings|http://embeddings:11434/api/tags"
-  "qdrant|http://qdrant:6333/collections"
+  "strata|http://strata:8080/v1/models|auth"
+  "qwen27b|http://qwen27b:8080/v1/models|none"
+  "embeddings|http://embeddings:11434/api/tags|none"
+  "qdrant|http://qdrant:6333/collections|none"
 )
 
 for entry in "${INTERNAL_CHECKS[@]}"; do
-  label="${entry%%|*}"
-  url="${entry#*|}"
-  if docker exec litellm-proxy python3 -c "import urllib.request, sys; urllib.request.urlopen('$url', timeout=10); sys.exit(0)" >/dev/null 2>&1; then
+  IFS='|' read -r label url auth_mode <<< "$entry"
+  if docker exec -e STRATA_API_KEY="${STRATA_API_KEY:-}" litellm-proxy python3 - "$url" "$auth_mode" <<'PY' >/dev/null 2>&1
+import os, sys, urllib.request
+
+url, auth_mode = sys.argv[1], sys.argv[2]
+req = urllib.request.Request(url)
+if auth_mode == "auth":
+    token = os.environ.get("STRATA_API_KEY", "")
+    if token:
+        req.add_header("Authorization", f"Bearer {token}")
+
+with urllib.request.urlopen(req, timeout=10) as resp:
+    sys.exit(0 if 200 <= resp.status < 300 else 1)
+PY
+  then
     pass "Internal network litellm -> $label ($url)"
   else
     fail "Internal network litellm -> $label ($url)"
