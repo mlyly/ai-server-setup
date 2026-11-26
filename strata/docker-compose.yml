@@ -1,53 +1,155 @@
 services:
+  # 1. PostgreSQL for LiteLLM Token & Usage Analytics
+  postgres:
+    image: postgres:16-alpine
+    container_name: litellm-postgres
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. LiteLLM Unified Proxy & Admin Dashboard (Port 4000)
+  litellm:
+    image: ghcr.io/berriai/litellm:main-stable
+    container_name: litellm-proxy
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "0.0.0.0:4000:4000"
+    volumes:
+      - ./litellm_config.yaml:/app/config.yaml:ro
+    command: --config /app/config.yaml --port 4000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      embeddings:
+        condition: service_started
+
+  # 3. Open WebUI Chat Interface (Port 3000 -> Routed via LiteLLM + Qdrant RAG)
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    restart: unless-stopped
+    ports:
+      - "0.0.0.0:3000:8080"
+    environment:
+      - OPENAI_API_BASE_URL=http://litellm:4000/v1
+      - OPENAI_API_KEY=${LITELLM_MASTER_KEY}
+      - ENABLE_OLLAMA_API=false
+      - WEBUI_AUTH=true
+      # Vector Database (Qdrant)
+      - VECTOR_DB=qdrant
+      - QDRANT_URI=http://qdrant:6333
+      # RAG Embeddings via LiteLLM
+      - RAG_EMBEDDING_ENGINE=openai
+      - RAG_OPENAI_API_BASE_URL=http://litellm:4000/v1
+      - RAG_OPENAI_API_KEY=${LITELLM_MASTER_KEY}
+      - RAG_EMBEDDING_MODEL=nomic-embed-text
+    volumes:
+      - open_webui_data:/app/backend/data
+    depends_on:
+      - litellm
+      - qdrant
+
+  # 4. GPUs 0 & 1 (64GB VRAM): Qwen3.8-Flash-Next via Strata (86 tok/s)
   strata:
     image: ghcr.io/niko1221/strata:latest-cuda12
     container_name: strata-v100
     restart: unless-stopped
-
-    # Expose API on your LAN (requires API_KEY set below)
     ports:
       - "0.0.0.0:8080:8080"
-
-    # Allocate all 3 V100 GPUs to the container
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              count: all
+              device_ids: [ '0', '1' ]
               capabilities: [ gpu ]
-
-    # Increase shared memory for multi-GPU MoE expert arenas
     shm_size: '16gb'
-
     environment:
-      # --- Multi-GPU Configuration (3 x V100) ---
-      # - GPU=0,1,2
-      # Exactly one card is 'main' (holds output head & draft layer); others are 'helper'
-      - GPU_ROLES=0=helper,1=helper,2=main
-
-      # --- Model & Quantization (Sweet spot for 96GB VRAM) ---
-#      - MODEL=Qwen3.8-Flash-Next
-#      - ALLOW_DOWNLOAD=1
-#      # Set context up to 65536 or 131072; int8 uses Volta's fast prompt-attention kernel
-#      - CONTEXT=131072
-#      - KV=int8
-      - MODEL=UD-Q4_K_XL
+      # - GPU=0,1
+      - GPU_ROLES=0=helper,1=main
+      - MODEL=IQ3_S
       - ALLOW_DOWNLOAD=1
-      - CONTEXT=65536
+      - CONTEXT=131072
       - KV=int8
-
-      # --- Volta (sm_70) Performance Tuning ---
-      # Enables Volta lookup-table optimization (+10–15% decode speed)
       - STRATA_SM70_TABLE=1
-      # Keeps dense weights trimmed per stage so freed VRAM holds more MoE experts
       - STRATA_STAGE_TRIM=1
-
-      # --- Security & Networking ---
-      # Required when binding to 0.0.0.0; change this to your own secret key
-      - API_KEY=sk-strata-change-me-to-a-strong-key
+      - API_KEY=${STRATA_API_KEY}
       - PORT=8080
-
     volumes:
-      # Mount a fast local NVMe/SSD directory on your G431-MM1 for models & caches
       - ./strata-data:/data
+
+  # 5. GPU 2 (32GB VRAM): Qwen3.8-27B via llama.cpp (Coder + Fast Sub-Agents)
+  qwen27b:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    container_name: qwen27b-coder
+    restart: unless-stopped
+    ipc: host
+    ports:
+      - "0.0.0.0:8081:8080"
+    volumes:
+      - ./models:/models
+    environment:
+      # - NVIDIA_VISIBLE_DEVICES=2
+      # - CUDA_VISIBLE_DEVICES=2
+      - LLAMA_CACHE=/models
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: [ '2' ]
+              capabilities: [ gpu ]
+    command: >
+      --hf-repo unsloth/Qwen3.8-27B-GGUF
+      --hf-file Qwen3.8-27B-UD-IQ4_XS.gguf
+      --host 0.0.0.0
+      --port 8080
+      -ngl 999
+      -c 131072
+      --parallel 4
+      --cache-type-k q8_0
+      --cache-type-v q8_0
+      --temp 0.6
+      --top-p 0.95
+      --top-k 20
+
+  # 6. Dedicated CPU Embedding Service (Leaves GPU 2 100% free for qwen27b)
+  embeddings:
+    image: ollama/ollama:latest
+    container_name: local-embeddings-cpu
+    restart: unless-stopped
+    ports:
+      - "11435:11434"
+    environment:
+      - OLLAMA_KEEP_ALIVE=-1
+      - OLLAMA_NUM_PARALLEL=2
+      - NVIDIA_VISIBLE_DEVICES=void
+      - CUDA_VISIBLE_DEVICES=""
+    volumes:
+      - embeddings_data:/root/.ollama
+
+  # 7. Qdrant Vector Database (REST/UI: 6333, gRPC: 6334)
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: local-qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+volumes:
+  postgres_data:
+  open_webui_data:
+  embeddings_data:
+  qdrant_data:

@@ -1,0 +1,122 @@
+services:
+  # PostgreSQL for LiteLLM Token & Usage Analytics
+  postgres:
+    image: postgres:16-alpine
+    container_name: litellm-postgres
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # LiteLLM Unified OpenAI-Compatible Proxy + Admin UI
+  litellm:
+    image: ghcr.io/berriai/litellm:main-stable
+    container_name: litellm-proxy
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./litellm_config.yaml:/app/config.yaml:ro
+    command: --config /app/config.yaml --port 4000
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # GPU 0: Qwen3.8-Flash-Next (Architect via Strata)
+  strata-flash-next:
+    build:
+      context: https://github.com
+      args:
+        CUDA_ARCHITECTURES: "70"
+    container_name: strata-flash-next
+    restart: unless-stopped
+    ipc: host
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    volumes:
+      - ./models:/models:ro
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=0
+      - CUDA_VISIBLE_DEVICES=0
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: [ '0' ]
+              capabilities: [ gpu ]
+    command: >
+      --model /models/Qwen3.8-Flash-Next-IQ3_S.gguf
+      --host 0.0.0.0
+      --port 8080
+      --ctx-size 131072
+      --vram-budget 28000
+
+  # GPU 1: Qwen3.8-27B Thinking (Precision Coder)
+  qwen27b-coder:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    container_name: qwen27b-coder
+    restart: unless-stopped
+    ipc: host
+    volumes:
+      - ./models:/models:ro
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=1
+      - CUDA_VISIBLE_DEVICES=1
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: [ '1' ]
+              capabilities: [ gpu ]
+    command: >
+      -m /models/Qwen3.8-27B-UD-IQ4_XS.gguf
+      --host 0.0.0.0
+      --port 8080
+      -ngl 999
+      -c 131072
+      --parallel 2
+      --temp 0.6
+      --top-p 0.95
+      --top-k 20
+
+  # GPU 2: Qwen3.8-27B Non-Thinking (Fast Exploration & Sub-Agents)
+  qwen27b-fast:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    container_name: qwen27b-fast
+    restart: unless-stopped
+    ipc: host
+    volumes:
+      - ./models:/models:ro
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=2
+      - CUDA_VISIBLE_DEVICES=2
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: [ '2' ]
+              capabilities: [ gpu ]
+    command: >
+      -m /models/Qwen3.8-27B-UD-IQ4_XS.gguf
+      --host 0.0.0.0
+      --port 8080
+      -ngl 999
+      -c 131072
+      --parallel 4
+      --reasoning-budget 0
+      --temp 0.7
+      --top-p 0.8
+      --top-k 20
+
+volumes:
+  postgres_data:

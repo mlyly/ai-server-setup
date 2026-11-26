@@ -1,0 +1,45 @@
+model_list:
+  # GPU 0: Architect / Autonomous Planning
+  - model_name: qwen3.8-flash-next
+    litellm_params:
+      model: openai/Qwen3.8-Flash-Next
+      api_base: http://strata-flash-next:8080/v1
+      api_key: "sk-no-key-required"
+      input_cost_per_token: 0
+      output_cost_per_token: 0
+    model_info:
+      max_tokens: 131072
+      supports_function_calling: true
+
+  # GPU 1: Precision Coder & Diffs (Thinking Enabled)
+  - model_name: qwen3.8-27b-coder
+    litellm_params:
+      model: openai/Qwen3.8-27B
+      api_base: http://qwen27b-coder:8080/v1
+      api_key: "sk-no-key-required"
+      input_cost_per_token: 0
+      output_cost_per_token: 0
+    model_info:
+      max_tokens: 131072
+      supports_function_calling: true
+
+  # GPU 2: Fast Exploration & Sub-Agents (Non-Thinking)
+  - model_name: qwen3.8-27b-fast
+    litellm_params:
+      model: openai/Qwen3.8-27B
+      api_base: http://qwen27b-fast:8080/v1
+      api_key: "sk-no-key-required"
+      input_cost_per_token: 0
+      output_cost_per_token: 0
+    model_info:
+      max_tokens: 131072
+      supports_function_calling: true
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
+  store_model_in_db: true
+
+litellm_settings:
+  drop_params: true
+  request_timeout: 600
